@@ -3,7 +3,7 @@ import { WithConnection } from 'components/connectWallet/ConnectWallet'
 import { AppLayout } from 'components/Layouts'
 import { getAddress } from 'ethers/lib/utils'
 import { WithTermsOfService } from 'features/termsOfService/TermsOfService'
-import { VaultsOverviewView } from 'features/vaultsOverview/VaultsOverviewView'
+import { VaultsOverviewView } from 'features/vaultsOverview/VaultOverviewView'
 import { WithLoadingIndicator } from 'helpers/AppSpinner'
 import { WithErrorHandler } from 'helpers/errorHandlers/WithErrorHandler'
 import { useObservable } from 'helpers/observableHook'
@@ -11,6 +11,11 @@ import { GetServerSidePropsContext } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import React from 'react'
 import { BackgroundLight } from 'theme/BackgroundLight'
+import { Dictionary } from 'ts-essentials'
+
+import { trackingEvents } from '../../../analytics/analytics'
+import { Vault } from '../../../blockchain/vaults'
+import { useRedirect } from '../../../helpers/useRedirect'
 
 export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   return {
@@ -21,13 +26,23 @@ export async function getServerSideProps(ctx: GetServerSidePropsContext) {
   }
 }
 
+function composeRedirection(push: (pathname: string, query?: Dictionary<string, string>) => void) {
+  return ({ id, ilk }: Vault) => {
+    trackingEvents.overviewManage(id.toString(), ilk)
+    return push(`/${id}`)
+  }
+}
+
 // TODO Move this to /features
 function Summary({ address }: { address: string }) {
   const { vaultsOverview$, context$, productCardsWithBalance$, accountData$ } = useAppContext()
   const checksumAddress = getAddress(address.toLocaleLowerCase())
+  const { push } = useRedirect()
 
   const [productCardsDataValue, productCardsDataError] = useObservable(productCardsWithBalance$)
-  const [vaultsOverview, vaultsOverviewError] = useObservable(vaultsOverview$(checksumAddress))
+  const [vaultsOverview, vaultsOverviewError] = useObservable(
+    vaultsOverview$(checksumAddress, composeRedirection(push)),
+  )
   const [context, contextError] = useObservable(context$)
   const [accountData, accountDataError] = useObservable(accountData$)
 
